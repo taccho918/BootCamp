@@ -1,0 +1,327 @@
+\documentclass[12pt]{jsarticle}
+\usepackage[dvipdfmx]{graphicx}
+\textheight = 25truecm
+\textwidth = 18truecm
+\topmargin = -1.5truecm
+\oddsidemargin = -1truecm
+\evensidemargin = -1truecm
+\marginparwidth = -1truecm
+
+\def\theenumii{\Alph{enumii}}
+\def\theenumiii{\alph{enumiii}}
+\def\labelenumi{(\theenumi)}
+\def\labelenumiii{(\theenumiii)}
+\def\theenumiv{\roman{enumiv}}
+\def\labelenumiv{(\theenumiv)}
+\usepackage{comment}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% sty/ にある研究室独自のスタイルファイル
+\usepackage{jtygm}  % フォントに関する余計な警告を消す
+\usepackage{nutils} % insertfigure, figref, tabref マクロ
+
+\def\figdir{./figs} % 図のディレクトリ
+\def\figext{pdf}    % 図のファイルの拡張子
+
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 表題
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{center}
+{\LARGE システムコール実装の手順書}
+\end{center}
+
+\begin{flushright}
+  2018/4/4\\
+  高橋 桃花
+\end{flushright}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 概要
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{はじめに}
+\label{sec:introduction}
+本手順書では，システムコール実装の手順を述べる．このシステムコールは，カーネルのメッセージバッファに任意の文字列を出力する機能を持つ．本手順書の読者は，コンソールの基本的な操作を習得している者を想定する．また，本手順書の工程で必要なパッケージは全てインストールされているものとする．以下に章立てを示す． \\ \\
+1章 はじめに \\
+2章 実装環境 \\
+3章 Linuxカーネルの取得 \\
+4章 システムコールの実装 \\
+5章 テスト \\
+6章 おわりに \\
+
+\section{実装環境}
+\label{sec:devenv}
+実装環境を\tabref{tab:devenv_table}に示す．
+
+\begin{table}[h]
+  \begin{center}
+    \caption{実装環境}\label{tab:devenv_table}
+    \begin{tabular}{l|l}
+      \hline \hline
+      OS & Debian 7.10 \\ \hline
+      カーネル & Linux カーネル3.15.0 \\ \hline
+      CPU & Intel Core i7 870 \\ \hline
+      メモリ & 2.0GB \\ \hline
+      インストールしたパッケージ & git \\ 
+      & build-essential \\ 
+      & libncurses5-dev \\ 
+      & bc \\ \hline
+      
+    \end{tabular}
+  \end{center}
+\end{table}
+
+% required packages
+
+\newpage
+\section{Linuxカーネルの取得}
+\label{sec:getkernel}
+\subsection{Linuxのソースコードの取得}
+Linuxのソースコードを取得する．LinuxのソースコードはGitで管理されている．Gitとはオープンソースの分散型バージョン管理システムである．下記のGitリポジトリからクローンし，Linuxのソースコードを取得する．
+
+\begin{verbatim}
+git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+\end{verbatim}
+リポジトリとはファイルやディレクトリを保存する場所のことであり，クローンとはリポジトリの内容を任意のディレクトリに複製することである．本手順書では， \verb|/home/takahashi/git| 以下でソースコードを管理する．\verb|/home/takahashi| で以下のコマンドを実行する．
+
+\begin{verbatim}
+$ mkdir git
+$ cd git
+$ git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+\end{verbatim}
+コマンド実行後，\verb|mkdir|コマンドにより \verb|/home/takahashi| 以下に \verb|git| ディレクトリが作成される．そして， \verb|cd| コマンドにより， \verb|git| ディレクトリに移動する．\verb|git clone| コマンドにより， \verb|/home/takahashi/git| 以下に \verb|linux-stable| ディレクトリが作成される．\verb|linux-stable| 以下にLinuxのソースコードが格納されている．
+
+\subsection{ブランチの作成と切り替え}
+Linuxのソースコードのバージョンを切り替えるため，ブランチの作成と切り替えを行う．ブランチとは開発の履歴を管理するための分岐である．\verb|/home/takahashi/git/linux-stable|で以下のコマンドを実行する．
+
+\begin{verbatim}
+$ git checkout -b 3.15 v3.15
+\end{verbatim}
+実行後，\verb|v3.15|というタグが示すコミットからブランチ\verb|3.15|が作成され，カレントブランチが\verb|3.15|に切り替わる．コミットとはある時点における開発の状態を記録したものである．タグとは，コミットを識別するためにつける印である．以降はブランチ\verb|3.15|において作業を行う．
+
+\newpage
+\section{システムコールの実装}
+\label{sec:overview}
+\subsection{ソースコードの編集}
+本節では以下の手順でソースコードを編集する．本手順書では，既存ファイルの内容変更を示す際，書き加えた行の先頭には\verb| + |を，削除した行の先頭には\verb| - |を付与する．
+\begin{enumerate}
+\item システムコールの作成\\
+  カーネルのメッセージバッファに任意の文字列を出力するシステムコールを作成するため，新しくソースファイルを作成する．本手順書では，ファイル名を\verb|mysyscall.c|とし，\verb|/home/takahashi/git/linux-stable/kernel|以下に作成する．また，システムコールの関数名は\verb|sys_mysyscall()|とする．以下に詳細を示す．
+  \begin{description}
+  \item[【形式】] \verb|  asmlinkage void sys_mysyscall(char* msg)|
+  \item[【引数】] \verb|  char* msg|: 任意の文字列
+  \item[【戻り値】] なし
+  \item[【機能】] 　カーネルのメッセージバッファに任意の文字列を出力する．
+  \end{description}
+
+\item システムコールのプロトタイプ宣言\\
+  \verb|/home/takahashi/git/linux-stable/include/linux|以下の\verb|syscalls.h|にプロトタイプ宣言を追加する．以下に編集例を示す．
+
+\begin{verbatim}
+ 245 asmlinkage long sys_setsid(void);
+ 246 asmlinkage long sys_setgroups(int gidsetsize, git_t __user *grouplist);
++247 asmlinkage void sys_mysyscall(char* msg);
+\end{verbatim}
+
+  \item システムコール番号の定義\\
+    実装するシステムコールのシステムコール番号を定義する． \\
+    \verb|/home/takahashi/git/linux-stable/arch/x86/syscalls|以下の\verb|syscall_64.tbl|を編集する．この番号は，システムコールを呼び出す際の引数として使用する．以下に編集例を示す．
+
+\begin{verbatim}
+ 315 common sched_getattr sys_sched_getattr
+ 316 common renameat2     sys_renameat2
++317 common mysyscall     sys_mysyscall
+\end{verbatim}
+新しく作成するシステムコールの番号を登録する際，正しくシステムコールを呼び出すために既存のシステムコールの番号と重複しないように割り当てる必要がある．
+本手順書では，システムコール\verb|sys_mysyscall()|のシステムコール番号を317と定義する．
+
+\item \verb|Makefile|の作成\\
+  作成したファイル\verb|mysyscall.c|のコンパイルをカーネルのコンパイルに含めるため，\verb|/home/takahashi/git/linux-stable/kernel|以下の\verb|Makefile|を編集する．以下，編集例を示す．
+\begin{verbatim}
+  5 obj-y  = fork.o exec_domain.o panic.o \
+  6          cpu.o exit.o itimer.o time.o softirq.o resource.o \
+  7          sysctl.o sysctl_binary.o capability.o ptrace.o timer.o user.o \
+  8          signal.o sys.o kmod.o workqueue.o pid.o task_work.o \
+  9          extable.o params.o posix-timers.o \
+ 10          kthread.o sys_ni,o posix-cpu-timers.o \ 
+ 11          hrtimer.o nsproxy.o \
+ 12          notifier.o ksysfs.o cred.o reboot.o \
+-13          async.o range.o groups.o smpboot.o 
++13          async.o range.o groups.o smpboot.o mysyscall.o
+\end{verbatim}
+\end{enumerate}
+
+\subsection{カーネルの再構築}
+次に，以下の手順でカーネルの再構築を行う．各手順のコマンドは\verb|/home/takahashi/git/linux-stable|以下で実行する．
+
+\begin{enumerate}
+\item \verb|.config|ファイルの作成 \\
+\verb|.config|ファイルを作成する．\verb|.config|ファイルとはカーネルの設定を記述したコンフィギュレーションファイルである．以下のコマンドを実行し，\verb|x86_64_defconfig|ファイルを基にカーネルの設定を行う．\verb|x86_64_defconfig|ファイルにはデフォルトの設定が記述されている．
+
+\begin{verbatim}
+$ make defconfig
+\end{verbatim}
+実行後，\verb|/home/takahashi/git/linux-stable|以下に\verb|.config|ファイルが作成される．
+
+\item カーネルのコンパイル \\
+次に，カーネルのコンパイルを行う．以下のコマンドを実行する．
+  
+\begin{verbatim}
+$ make bzImage -j8
+\end{verbatim}
+コマンド実行後，\verb|/home/takahashi/git/linux-stable/arch/x86/boot|以下に\\
+bzImageという名前の新しいカーネルイメージが作成される．カーネルイメージとはLinuxカーネルを格納して圧縮したファイルである．カーネルイメージ作成と同時に，\verb|/home/takahashi/git/linux-stable|以下に全てのカーネルシンボルのアドレスを記述した\verb|System.map|が作成される．カーネルシンボルとは，カーネルのプログラムが格納されたメモリアドレスと対応付けられた文字列のことである．\\
+\verb|make|コマンドにおける\verb|-j [N]|オプションは，一度に実行できるジョブの数を指定するものである．\verb|[N]|はジョブ数を示す．適切なジョブ数を指定することにより，コンパイルを高速化することができる．ジョブ数を指定せずに実行した場合は，可能な限りジョブ数を増やすことになるが，不用意に数を増やすとメモリ不足となり速度が低下するため，適切な数を指定する必要がある．ここでは，CPUのコア数4に対して2倍となる8を指定した．
+
+\item カーネルのインストール \\
+  コンパイルしたカーネルをインストールする．以下のコマンドを実行する．
+\begin{verbatim}
+  $ sudo cp /home/takahashi/git/linux-stable/arch/x86/boot/bzImage \
+            /boot/vmlinuz-3.15.0-linux
+  $ sudo cp /home/takahashi/git/linux-stable/System.map \
+            /boot/System.map-3.15.0-linux
+\end{verbatim}
+実行後，\verb|bzImage|と\verb|System.map|がそれぞれ\verb|/boot|以下に\verb|vmlinuz-3.15.0-linux|と\verb|System.map-3.15.0-linux|という名前でコピーされる．コピーする際のファイル名は，\verb|vmlinuz|-(バージョン)-(任意の文字列)，\verb|System.map|-(バージョン)-(任意の文字列)の形式で設定する．
+
+\item カーネルモジュールのコンパイル \\
+  カーネルモジュールをコンパイルする．カーネルモジュールとはカーネルの機能を拡張するためのバイナリファイルである．以下のコマンドを実行する．
+
+\begin{verbatim}
+$ make modules
+\end{verbatim}
+  
+\item カーネルモジュールのインストール \\
+  コンパイルしたカーネルモジュールのインストールを行う．以下のコマンドを実行する．
+
+\begin{verbatim}
+$ sudo make modules_install
+\end{verbatim}
+上記コマンドの実行結果の最後の行は以下のように出力される．
+
+\begin{verbatim}
+DEPMOD 3.15.0
+\end{verbatim}
+これはカーネルモジュールをインストールしたディレクトリ名を示している．上記の例では，\verb|/lib/modules/3.15.0|にカーネルモジュールがインストールされている．
+
+\item 初期RAMディスクイメージの作成 \\
+  初期RAMディスクイメージを作成する．初期RAMディスクとは，実際のルートファイルシステムが使用できるようになる前にマウントされる初期ルートファイルシステムである．以下のコマンドを実行する．
+
+\begin{verbatim}
+$ sudo update-initramfs -c -k 3.15.0
+\end{verbatim}
+手順(5)の実行結果の最後に表示されたディレクトリ名をコマンドの引数として与える．実行後，\verb|/boot|以下に初期RAMディスクイメージ\verb|initrd.img-3.15.0|が作成される．
+
+\item ブートローダの設定 \\
+  システムコールを実装したカーネルをブートローダから起動可能にするために，ブートローダの設定を行う．ブートローダとは，カーネルイメージをRAMへ読み込むために，BIOSが呼び出すプログラムである．BIOS(Basic Input/Output System)とは，基本的な入出力機能の制御を行うプログラムである\cite{daniel2007}．\\
+  Debian7.10で使用されているブートローダはGRUB2と呼ばれるものである．ブートローダの設定ファイルは\verb|/boot/grub/grub.cfg|である．GRUB2でカーネルのエントリを追加する際，設定ファイルを直接編集せず，\verb|/etc/grub.d|以下にエントリ追加用のスクリプトを作成し，そのスクリプトを実行することでエントリを追加する．以下にブートローダの設定の手順を示す．
+  
+  \begin{enumerate}
+  \item エントリ追加用のスクリプトの作成\\
+    カーネルのエントリを追加するため，エントリ追加用のスクリプトを作成する．本手順書では，既存のファイル名に倣い作成するスクリプトのファイル名は\verb|11_linux-3.15.0|とする．スクリプトの記述例を以下に示す．
+\begin{verbatim}
+1 #!/bin/sh -e
+2 echo "Adding my custom Linux to GRUB2"
+3 cat << EOF
+4 menuentry "My custom Linux" {
+5   set root=(hd0,1)
+6   linux /vmlinuz-3.15.0-linux ro root=/dev/sda2 quiet
+7   initrd /initrd.img-3.15.0
+8 }
+9 EOF
+\end{verbatim}
+スクリプトに記述してある各項目について以下に示す．
+    \begin{enumerate}
+    \item \verb|menuentry| ＜表示名＞ \\
+      ＜表示名＞: カーネル選択画面に表示される名前
+    \item \verb|set root=(|＜HDD番号＞,＜パーティション番号＞\verb|)| \\
+      ＜HDD番号＞: カーネルが保存されているHDDの番号 \\
+      ＜パーティション番号＞: HDDの\verb|/boot|が割り当てられたパーティション番号
+    \item \verb|linux| ＜カーネルイメージのファイル名＞ \\
+      ＜カーネルイメージのファイル名＞: 起動するカーネルのカーネルイメージ
+    \item \verb|ro| ＜rootデバイス＞\\
+      ＜rootデバイス＞: 起動時に読み込み専用でマウントするデバイス
+    \item \verb|root=| ＜ルートファイルシステム＞ ＜その他のブートオプション＞\\
+      ＜ルートファイルシステム＞: \verb|/root|を割り当てたパーティション \\
+      ＜その他のブートオプション＞: \verb|quiet|はカーネル起動時に出力するメッセージを省略する
+    \item \verb|initrd| ＜初期RAMディスク名＞ \\
+      ＜初期RAMディスク名＞: 起動時にマウントする初期RAMディスク名
+    \end{enumerate}
+    
+  \item 実行権限の付与\\
+    \verb|/etc/grub.d|で以下のコマンドを実行し，作成したスクリプトに実行権限を付与する．
+\begin{verbatim}
+$ sudo chmod +x 11_linux-3.15.0
+\end{verbatim}
+
+\item エントリ追加用のスクリプトの実行\\
+  以下のコマンドを実行し，作成したスクリプトを実行する．
+\begin{verbatim}
+$ sudo update-grub
+\end{verbatim}
+実行後，\verb|/boot/grub/grub.cfg|にシステムコールを実装したカーネルのエントリが追加される．
+  \end{enumerate}
+  
+\item 再起動 \\
+  任意のディレクトリで以下のコマンドを実行し，計算機を再起動させる．
+\begin{verbatim}
+$ sudo reboot
+\end{verbatim}
+再起動した際，GRUB2のカーネル選択画面に新しく登録したエントリが追加されている．手順(7)の(A)のスクリプトを用いた場合，カーネル選択画面で\verb|My custom Linux|を選択し，起動する．
+
+\end{enumerate}
+
+\section{テスト}
+\label{sec:test}
+\subsection{テストの概要}
+システムコールが実装されているか否かを確認するため，システムコールを実行してテストする．テストの手順は以下の通りである．
+
+\begin{enumerate}
+\item テストプログラムを作成し，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを実行する．
+\item カーネルのメッセージバッファに書き込まれた内容を確認する．
+\end{enumerate}
+
+\subsection{テストプログラムの作成}
+システムコールを実行するテストプログラムを作成する．本手順書では，テストプログラムの名前は\verb|test.c|とし，\verb|/home/takahashi/workspace|以下に作成する．このテストプログラムの処理の流れは以下の通りである．
+
+\begin{enumerate}
+\item 任意の文字列を定義する
+\item 文字列とシステムコール番号を引数に取り，sys\_mysyscall()を呼び出す．
+\item カーネルのメッセージバッファに指定した文字列が格納される．
+\end{enumerate}
+テストプログラムの作成例を以下に示す．
+
+\begin{verbatim}
+ 1  #define _GNU_SOURCE
+ 2  #include <unistd.h>
+ 3  #include <sys/syscall.h>
+ 4
+ 5  #define SYS_mysyscall 317
+ 6 
+ 7  int main(void)
+ 8  {
+ 9    char *str = "this is test"
+10    syscall(SYS_mysyscall, str);
+11    return 0;
+12 } 
+\end{verbatim}
+5行目では，\verb|sys_mysyscall()|のシステムコール番号317を定義している．
+
+\subsection{テストプログラムの実行}
+5.2節で作成したプログラムをコンパイルし，実行する．実行後，\verb|dmesg|コマンドを実行しカーネルのメッセージバッファを確認する．
+
+\begin{verbatim}
+$ dmesg
+\end{verbatim}
+
+実行後，システムコールが実装されていれば以下のような結果が得られる．
+\begin{verbatim}
+[  106.445008] mysyscall: this is test
+\end{verbatim}
+
+\section{おわりに}
+\label{sec:conclusion}
+本手順書では，カーネルのメッセージバッファに任意の文字列を出力するシステムコールの実装手順を示した．また，実装ができているか否かを確認するためのテスト方法について示した．
+
+\bibliographystyle{ipsjunsrt}
+\bibliography{mybibfile}
+
+\end{document}
