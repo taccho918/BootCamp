@@ -32,7 +32,7 @@
 \end{center}
 
 \begin{flushright}
-  2018/4/4\\
+  2018/4/11\\
   高橋 桃花
 \end{flushright}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -59,9 +59,9 @@
       \hline \hline
       OS & Debian 7.10 \\ \hline
       カーネル & Linux カーネル3.15.0 \\ \hline
-      CPU & Intel Core i7 870 \\ \hline
+      CPU & Intel Core i7 870 4コア\\ \hline
       メモリ & 2.0GB \\ \hline
-      インストールしたパッケージ & git \\ 
+      必要なパッケージ & git \\ 
       & build-essential \\ 
       & libncurses5-dev \\ 
       & bc \\ \hline
@@ -69,8 +69,6 @@
     \end{tabular}
   \end{center}
 \end{table}
-
-% required packages
 
 \newpage
 \section{Linuxカーネルの取得}
@@ -114,7 +112,7 @@ $ git checkout -b 3.15 v3.15
   \end{description}
 
 \item システムコールのプロトタイプ宣言\\
-  \verb|/home/takahashi/git/linux-stable/include/linux|以下の\verb|syscalls.h|にプロトタイプ宣言を追加する．以下に編集例を示す．
+  \verb|/home/takahashi/git/linux-stable/include/linux/syscalls.h|にプロトタイプ宣言を追加する．以下に編集例を示す．
 
 \begin{verbatim}
  245 asmlinkage long sys_setsid(void);
@@ -124,18 +122,27 @@ $ git checkout -b 3.15 v3.15
 
   \item システムコール番号の定義\\
     実装するシステムコールのシステムコール番号を定義する． \\
-    \verb|/home/takahashi/git/linux-stable/arch/x86/syscalls|以下の\verb|syscall_64.tbl|を編集する．この番号は，システムコールを呼び出す際の引数として使用する．以下に編集例を示す．
+    \verb|/home/takahashi/git/linux-stable/arch/x86/syscalls/syscall_64.tbl|を編集する．この番号は，システムコールを呼び出す際の引数として使用する．以下に編集例を示す．
 
 \begin{verbatim}
- 315 common sched_getattr sys_sched_getattr
- 316 common renameat2     sys_renameat2
-+317 common mysyscall     sys_mysyscall
+ 324 315 common sched_getattr sys_sched_getattr
+ 325 316 common renameat2     sys_renameat2
++326 317 common mysyscall     sys_mysyscall
 \end{verbatim}
 新しく作成するシステムコールの番号を登録する際，正しくシステムコールを呼び出すために既存のシステムコールの番号と重複しないように割り当てる必要がある．
-本手順書では，システムコール\verb|sys_mysyscall()|のシステムコール番号を317と定義する．
+本手順書では，システムコール\verb|sys_mysyscall()|のシステムコール番号を317と定義する．このファイル内におけるフォーマットは，\verb|<number> <abi> <name> <entry point>|である．各項目について，以下に詳細を示す．
+
+\newpage
+\begin{enumerate}
+\item \verb|number|: システムコール番号
+\item \verb|abi|: Application Binary Interfaceを表す．ABIとは，アプリケーションのバイナリファイルとカーネル間のインタフェースである．\verb|64|または\verb|x32|，\verb|common|のいずれかを指定する．
+\item \verb|name|: システムコールの名前
+\item \verb|entry point|: システムコールを呼び出す際に用いるシステムコール関数の名前
+\end{enumerate}
 
 \item \verb|Makefile|の作成\\
-  作成したファイル\verb|mysyscall.c|のコンパイルをカーネルのコンパイルに含めるため，\verb|/home/takahashi/git/linux-stable/kernel|以下の\verb|Makefile|を編集する．以下，編集例を示す．
+  カーネルのコンパイル時に，\verb|mysyscall.c|をコンパイルするため，\\
+  \verb|/home/takahashi/git/linux-stable/kernel/Makefile|を編集する．以下，編集例を示す．
 \begin{verbatim}
   5 obj-y  = fork.o exec_domain.o panic.o \
   6          cpu.o exit.o itimer.o time.o softirq.o resource.o \
@@ -148,6 +155,8 @@ $ git checkout -b 3.15 v3.15
 -13          async.o range.o groups.o smpboot.o 
 +13          async.o range.o groups.o smpboot.o mysyscall.o
 \end{verbatim}
+
+上記の例では，13行目の末尾に\verb|mysyscall.o|を追加した．
 \end{enumerate}
 
 \subsection{カーネルの再構築}
@@ -163,14 +172,17 @@ $ make defconfig
 実行後，\verb|/home/takahashi/git/linux-stable|以下に\verb|.config|ファイルが作成される．
 
 \item カーネルのコンパイル \\
-次に，カーネルのコンパイルを行う．以下のコマンドを実行する．
-  
+次に，カーネルのコンパイルを行う．以下にコマンドの実行例を示す．
+
+\newpage
 \begin{verbatim}
+$ nproc
+8
 $ make bzImage -j8
 \end{verbatim}
-コマンド実行後，\verb|/home/takahashi/git/linux-stable/arch/x86/boot|以下に\\
+\verb|nproc|コマンドにより利用可能なCPU数を確認し，その数を引数に\verb|make|コマンドを実行する．その後，\verb|/home/takahashi/git/linux-stable/arch/x86/boot|以下に
 bzImageという名前の新しいカーネルイメージが作成される．カーネルイメージとはLinuxカーネルを格納して圧縮したファイルである．カーネルイメージ作成と同時に，\verb|/home/takahashi/git/linux-stable|以下に全てのカーネルシンボルのアドレスを記述した\verb|System.map|が作成される．カーネルシンボルとは，カーネルのプログラムが格納されたメモリアドレスと対応付けられた文字列のことである．\\
-\verb|make|コマンドにおける\verb|-j [N]|オプションは，一度に実行できるジョブの数を指定するものである．\verb|[N]|はジョブ数を示す．適切なジョブ数を指定することにより，コンパイルを高速化することができる．ジョブ数を指定せずに実行した場合は，可能な限りジョブ数を増やすことになるが，不用意に数を増やすとメモリ不足となり速度が低下するため，適切な数を指定する必要がある．ここでは，CPUのコア数4に対して2倍となる8を指定した．
+\verb|make|コマンドにおける\verb|-j [N]|オプションは，一度に実行できるジョブの数を指定するものである．\verb|[N]|はジョブ数を示す．ジョブ数を指定しない場合，\verb|make|コマンドは同時に実行できるジョブの数を制限しない．
 
 \item カーネルのインストール \\
   コンパイルしたカーネルをインストールする．以下のコマンドを実行する．
@@ -212,7 +224,7 @@ $ sudo update-initramfs -c -k 3.15.0
 
 \item ブートローダの設定 \\
   システムコールを実装したカーネルをブートローダから起動可能にするために，ブートローダの設定を行う．ブートローダとは，カーネルイメージをRAMへ読み込むために，BIOSが呼び出すプログラムである．BIOS(Basic Input/Output System)とは，基本的な入出力機能の制御を行うプログラムである\cite{daniel2007}．\\
-  Debian7.10で使用されているブートローダはGRUB2と呼ばれるものである．ブートローダの設定ファイルは\verb|/boot/grub/grub.cfg|である．GRUB2でカーネルのエントリを追加する際，設定ファイルを直接編集せず，\verb|/etc/grub.d|以下にエントリ追加用のスクリプトを作成し，そのスクリプトを実行することでエントリを追加する．以下にブートローダの設定の手順を示す．
+  本環境で使用されているブートローダはGRUB2である．ブートローダの設定ファイルは\verb|/boot/grub/grub.cfg|である．GRUB2でカーネルのエントリを追加する際，設定ファイルを直接編集せず，\verb|/etc/grub.d|以下にエントリ追加用のスクリプトを作成し，そのスクリプトを実行することでエントリを追加する．以下にブートローダの設定の手順を示す．
   
   \begin{enumerate}
   \item エントリ追加用のスクリプトの作成\\
@@ -228,6 +240,8 @@ $ sudo update-initramfs -c -k 3.15.0
 8 }
 9 EOF
 \end{verbatim}
+
+\newpage
 スクリプトに記述してある各項目について以下に示す．
     \begin{enumerate}
     \item \verb|menuentry| ＜表示名＞ \\
@@ -269,44 +283,43 @@ $ sudo reboot
 
 \end{enumerate}
 
+\newpage
 \section{テスト}
 \label{sec:test}
 \subsection{テストの概要}
 システムコールが実装されているか否かを確認するため，システムコールを実行してテストする．テストの手順は以下の通りである．
 
 \begin{enumerate}
-\item テストプログラムを作成し，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを実行する．
-\item カーネルのメッセージバッファに書き込まれた内容を確認する．
+\item テストプログラムを作成し，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを実行
+\item カーネルのメッセージバッファに書き込まれた内容を確認
 \end{enumerate}
 
 \subsection{テストプログラムの作成}
 システムコールを実行するテストプログラムを作成する．本手順書では，テストプログラムの名前は\verb|test.c|とし，\verb|/home/takahashi/workspace|以下に作成する．このテストプログラムの処理の流れは以下の通りである．
 
 \begin{enumerate}
-\item 任意の文字列を定義する
-\item 文字列とシステムコール番号を引数に取り，sys\_mysyscall()を呼び出す．
-\item カーネルのメッセージバッファに指定した文字列が格納される．
+\item 任意の文字列を定義
+\item 文字列とシステムコール番号を引数に持つ\verb|sys_mysyscall()|の呼び出し
 \end{enumerate}
+この結果，カーネルのメッセージバッファに指定した文字列が格納される．
 テストプログラムの作成例を以下に示す．
 
 \begin{verbatim}
- 1  #define _GNU_SOURCE
- 2  #include <unistd.h>
- 3  #include <sys/syscall.h>
- 4
- 5  #define SYS_mysyscall 317
- 6 
- 7  int main(void)
- 8  {
- 9    char *str = "this is test"
-10    syscall(SYS_mysyscall, str);
-11    return 0;
-12 } 
+ 1  #include <unistd.h> // syscall()が宣言されている
+ 2
+ 3  #define SYS_mysyscall 317
+ 4 
+ 5  int main(void)
+ 6  {
+ 7    char *str = "this is test"
+ 8    syscall(SYS_mysyscall, str);
+ 9    return 0;
+10  } 
 \end{verbatim}
 5行目では，\verb|sys_mysyscall()|のシステムコール番号317を定義している．
 
 \subsection{テストプログラムの実行}
-5.2節で作成したプログラムをコンパイルし，実行する．実行後，\verb|dmesg|コマンドを実行しカーネルのメッセージバッファを確認する．
+5.2節で作成したプログラムをコンパイルし，実行する．その後，\verb|dmesg|コマンドを実行しカーネルのメッセージバッファを確認する．
 
 \begin{verbatim}
 $ dmesg
@@ -314,8 +327,9 @@ $ dmesg
 
 実行後，システムコールが実装されていれば以下のような結果が得られる．
 \begin{verbatim}
-[  106.445008] mysyscall: this is test
+[  106.445008] this is test
 \end{verbatim}
+上記の結果において，角括弧内の数字はカーネル起動開始からの経過時間を表す．
 
 \section{おわりに}
 \label{sec:conclusion}
