@@ -28,7 +28,7 @@
 %% 表題
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{center}
-{\LARGE Linuxカーネルへのシステムコールの実装手順書}
+{\LARGE カーネルのメッセージバッファに任意の文字列を出力するシステムコールの実装手順書}
 \end{center}
 
 \begin{flushright}
@@ -40,17 +40,18 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{はじめに}
 \label{sec:introduction}
-本手順書では，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを例として，Linuxカーネルへのシステムコールを実装する手順について述べる．本手順書の読者は，コンソールの基本的な操作を習得している者を想定する．また，本手順書の工程で必要なパッケージはすべてインストールされているものとする．以下に章立てを示す． \\ \\
+本手順書では，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを実装する手順について述べる．本手順書の読者は，コンソールの基本的な操作を習得している者を想定する．また，本手順書の工程で必要なパッケージはすべてインストールされているものとする．7章には，付録としてカーネルのメッセージバッファに任意の文字列を出力するシステムコールのソースコード例を添付する．以下に章立てを示す． \\ \\
 1章 はじめに \\
 2章 実装環境 \\
 3章 Linuxカーネルの取得 \\
 4章 システムコールの実装 \\
 5章 テスト \\
 6章 おわりに \\
+7章 付録 
 
 \section{実装環境}
 \label{sec:devenv}
-実装環境を\tabref{tab:devenv_table}に示す．
+実装環境を\tabref{tab:devenv_table}に示す．\tabref{tab:devenv_table}の導入済みパッケージのgitは，3章のLinuxのソースコードの取得の際に用いる．また，gcc, make, bcは4章のカーネルの再構築に用いる．
 
 \begin{table}[h]
   \begin{center}
@@ -61,35 +62,31 @@
       カーネル & Linux カーネル3.15.0 \\ \hline
       CPU & Intel Core i7 870 4コア\\ \hline
       メモリ & 2.0GB \\ \hline
-      必要なパッケージ & git \\ 
-      & build-essential \\ 
-      & libncurses5-dev \\ 
-      & bc \\ \hline
-      
+      導入済みパッケージ & git, gcc, make, bc \\ \hline
     \end{tabular}
   \end{center}
 \end{table}
 
-\newpage
+
 \section{Linuxカーネルの取得}
 \label{sec:getkernel}
 \subsection{Linuxのソースコードの取得}
-Linuxのソースコードを取得する．LinuxのソースコードはGitで管理されている．Gitとはオープンソースの分散型バージョン管理システムである．下記のGitリポジトリからクローンし，Linuxのソースコードを取得する．
+Linuxのソースコードを取得する．LinuxのソースコードはGitで管理されている．Gitとはオープンソースの分散型バージョン管理システムである．下記のGitリポジトリからクローンし，Linuxのソースコードを取得する．リポジトリとはファイルやディレクトリを保存する場所のことであり，クローンとはリポジトリの内容を任意のディレクトリに複製することである．
 
 \begin{verbatim}
 git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 \end{verbatim}
-リポジトリとはファイルやディレクトリを保存する場所のことであり，クローンとはリポジトリの内容を任意のディレクトリに複製することである．本手順書では， \verb|/home/takahashi/git| 以下でソースコードを管理する．\verb|/home/takahashi| で以下のコマンドを実行する．
+本手順書では， \verb|/home/takahashi/git| 以下でソースコードを管理する．\verb|/home/takahashi| で以下のコマンドを実行する．
 
 \begin{verbatim}
 $ mkdir git
 $ cd git
 $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 \end{verbatim}
-コマンド実行後，\verb|mkdir|コマンドにより \verb|/home/takahashi| 以下に \verb|git| ディレクトリが作成される．そして， \verb|cd| コマンドにより， \verb|git| ディレクトリに移動する．\verb|git clone| コマンドにより， \verb|/home/takahashi/git| 以下に \verb|linux-stable| ディレクトリが作成される．\verb|linux-stable| 以下にLinuxのソースコードが格納されている．
+コマンド実行後，\verb|mkdir|コマンドにより \verb|/home/takahashi|以下に \verb|git|ディレクトリが作成される．そして， \verb|cd|コマンドにより， \verb|git|ディレクトリに移動する．\verb|git clone|コマンドにより， \verb|/home/takahashi/git|以下に \verb|linux-stable| ディレクトリが作成される．
 
 \subsection{ブランチの作成と切り替え}
-Linuxのソースコードのバージョンを切り替えるため，ブランチの作成と切り替えを行う．ブランチとは開発の履歴を管理するための分岐である．\verb|/home/takahashi/git/linux-stable|で以下のコマンドを実行する．
+Linuxカーネルのバージョン3.15.0にシステムコールを追加するため，ソースコードのバージョンを切り替える．従って，ブランチの作成と切り替えを行う．ブランチとは開発の履歴を管理するための分岐である．\verb|/home/takahashi/git/linux-stable|で以下のコマンドを実行する．
 
 \begin{verbatim}
 $ git checkout -b 3.15 v3.15
@@ -100,7 +97,7 @@ $ git checkout -b 3.15 v3.15
 \section{システムコールの実装}
 \label{sec:overview}
 \subsection{ソースコードの編集}
-本節では以下の手順でソースコードを編集する．本手順書では，既存ファイルの内容変更を示す際，書き加えた行の先頭には\verb| + |を，削除した行の先頭には\verb| - |を付与する．また，以降記述するソースコードにおいて，左端の数字は行番号を示す．
+本節では以下の手順でソースコードを編集する．本手順書では，既存ファイルの内容の変更を示す際，書き加えた行の先頭には\verb| + |を，削除した行の先頭には\verb| - |を付与する．また，以降記載するソースコードにおいて，左端の数字は行番号を示す．
 
 \begin{enumerate}
 \item システムコールの作成\\
@@ -111,9 +108,10 @@ $ git checkout -b 3.15 v3.15
   \item[【戻り値】] なし
   \item[【機能】] 　カーネルのメッセージバッファに任意の文字列を出力する．
   \end{description}
+カーネルのメッセージバッファに任意の文字列を出力するシステムコールのソースコード例を7章に添付する．
 
 \item システムコールのプロトタイプ宣言\\
-  \verb|/home/takahashi/git/linux-stable/include/linux/syscalls.h|にプロトタイプ宣言を追加する．以下に編集例を示す．
+  \verb|/home/takahashi/git/linux-stable/include/linux/syscalls.h|にカーネルのメッセージバッファに任意の文字列を出力するシステムコールのプロトタイプ宣言を追加する．以下に編集例を示す．
 
 \begin{verbatim}
  245 asmlinkage long sys_setsid(void);
@@ -141,10 +139,10 @@ $ git checkout -b 3.15 v3.15
 \item \verb|abi|: アプリケーションのバイナリファイルとカーネル間のインタフェース\\
   \verb|64|，\verb|x32|，または\verb|common|を指定する．
 \item \verb|name|: システムコールの名前
-\item \verb|entry point|: システムコールを呼び出す際に用いるシステムコール関数の名前
+\item \verb|entry point|: システムコールを呼び出す際に用いる関数の名前
 \end{enumerate}
 
-\item \verb|Makefile|の作成\\
+\item \verb|Makefile|の編集\\
   カーネルのコンパイル時に，\verb|mysyscall.c|をコンパイルするため，\\
   \verb|/home/takahashi/git/linux-stable/kernel/Makefile|を編集する．以下，編集例を示す．
 \begin{verbatim}
@@ -178,13 +176,12 @@ $ make defconfig
 \item カーネルのコンパイル \\
 次に，カーネルのコンパイルを行う．以下にコマンドの実行例を示す．
 
-\newpage
 \begin{verbatim}
 $ nproc
 8
 $ make bzImage -j8
 \end{verbatim}
-\verb|nproc|コマンドにより利用可能なCPU数を確認する．次に，\verb|make|コマンドの\verb|-j|オプションに確認したCPU数を指定し，実行する．
+\verb|nproc|コマンドにより利用可能なCPU数を確認する．次に，\verb|make|コマンドの\verb|-j [N]|オプションに確認したCPU数を指定し，実行する．
 \verb|make|コマンドにおける\verb|-j [N]|オプションは，一度に実行できるジョブの数を指定するものであり，\verb|[N]|はジョブ数を示す．ジョブ数を指定しない場合，\verb|make|コマンドは同時に実行できるジョブの数を制限しない．\\
 コマンド実行後，\verb|/home/takahashi/git/linux-stable/arch/x86/boot|以下にbzImage\\
 という名前の新しいカーネルイメージが作成される．カーネルイメージとはLinuxカーネルを格納して圧縮したファイルである．カーネルイメージ作成と同時に，\verb|/home/takahashi/git/linux-stable|以下にすべてのカーネルシンボルのアドレスを記述した\verb|System.map|が作成される．カーネルシンボルとは，カーネルのプログラムが格納されたメモリアドレスと対応付けられた文字列のことである．
@@ -229,7 +226,7 @@ $ sudo update-initramfs -c -k 3.15.0
 
 \item ブートローダの設定 \\
   システムコールを実装したカーネルをブートローダから起動可能にするために，ブートローダの設定を行う．ブートローダとは，カーネルイメージをRAMへ読み込むために，BIOSが呼び出すプログラムである．BIOS（Basic Input/Output System）とは，基本的な入出力機能の制御を行うプログラムである\cite{daniel2007}．\\
-  本環境で使用されているブートローダはGRUB2である．また，ブートローダの設定ファイルは\verb|/boot/grub/grub.cfg|である．GRUB2でカーネルのエントリを追加する際，設定ファイルを直接編集せず，\verb|/etc/grub.d|以下にエントリ追加用のスクリプトを作成し，そのスクリプトを実行することでエントリを追加する．以下にブートローダの設定の手順を示す．
+  本環境で使用されているブートローダはGRUB2である．また，GRUB2の設定ファイルは\verb|/boot/grub/grub.cfg|である．GRUB2でカーネル選択画面にエントリを追加する際，設定ファイルを直接編集せず，\verb|/etc/grub.d|以下にエントリ追加用のスクリプトを作成し，そのスクリプトを実行することでエントリを追加する．以下にGRUB2の設定の手順を示す．
   
   \begin{enumerate}
   \item エントリ追加用のスクリプトの作成\\
@@ -292,7 +289,7 @@ $ sudo reboot
 \section{テスト}
 \label{sec:test}
 \subsection{テストの概要}
-システムコールが実装できているか否かを確認するため，システムコールを実行してテストする．テストの手順は以下のとおりである．
+システムコールが実装できているか否かを確認するため，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを実行してテストする．テストの手順は以下のとおりである．
 
 \begin{enumerate}
 \item テストプログラムを作成し，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを実行
@@ -311,17 +308,15 @@ $ sudo reboot
 
 \begin{verbatim}
  1  #include <unistd.h> // syscall()が宣言されている
- 2
- 3  #define SYS_mysyscall 317
- 4 
- 5  int main(void)
- 6  {
- 7    char *str = "this is test"
- 8    syscall(SYS_mysyscall, str);
- 9    return 0;
-10  } 
+ 2 
+ 3  int main(void)
+ 4  {
+ 5    char *str = "this is test"
+ 6    syscall(317,str); // syscall(sys_mysyscall(),str);
+ 7    return 0;
+ 8  } 
 \end{verbatim}
-5行目では，\verb|sys_mysyscall()|のシステムコール番号317を定義している．
+6行目において，317は\verb|sys_mysyscall()|のシステムコール番号を表す．
 
 \subsection{テストプログラムの実行}
 5.2節で作成したプログラムをコンパイルし，実行する．その後，\verb|dmesg|コマンドを実行しカーネルのメッセージバッファを確認する．
@@ -338,7 +333,21 @@ $ dmesg
 
 \section{おわりに}
 \label{sec:conclusion}
-本手順書では，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを例として，Linuxカーネルへシステムコールを実装する手順を示した．また，実装できているか否かを確認するためのテスト方法について示した．
+本手順書では，カーネルのメッセージバッファに任意の文字列を出力するシステムコールを実装する手順を示した．また，実装できているか否かを確認するためのテスト方法について示した．
+
+\section{付録}
+\label{appendix}
+以下にカーネルのメッセージバッファに任意の文字列を出力するシステムコールのソースコード例を添付する．\verb|/home/takahashi/git/linux-stable/kernel/mysyscall.c|にソースコードを記述する．
+\begin{verbatim}
+  1 #include <linux/kernel.h> 
+  2 #include <linux/syscalls.h>
+  3
+  4 asmlinkage void sys_mysyscall(char* msg)
+  5 {
+  6   printk("%s\n", msg); 
+  7 }
+\end{verbatim}
+
 
 \bibliographystyle{ipsjunsrt}
 \bibliography{mybibfile}
