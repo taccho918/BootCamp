@@ -39,5 +39,5 @@ PROJECT_BIB = mybibfile.bib
 #    FIG_PDF_FILES = figs/fig1.pdf figs/fig2.pdf figs/fig3.pdf \
 #       figs/fig4.pdf figs/fig5.pdf
 #
-#FIG_MASTER_FILE = figs/fig.pdf
-#FIG_PAGES       = 1 2
+FIG_MASTER_FILE = figs/fig.pdf
+FIG_PAGES       = 1 2 3 4

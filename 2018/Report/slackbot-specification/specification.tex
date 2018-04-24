@@ -40,14 +40,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{概要}
 \label{sec:introduction}
-本資料は，平成30年度B4新人研修課題のSlackBotプログラムの仕様についてまとめたものである．本プログラムで使用するSlack\cite{slack}とは，チャットツールである．SlackBotとは，Slackにおけるやり取りを自動化するプログラムである．本プログラムは以下の2つの機能をもつ．
+本資料は，平成30年度B4新人研修課題のSlackBotプログラムの仕様についてまとめたものである．本プログラムで使用するSlack\cite{slack}とは，チャットツールである．SlackBotとは，Slackのチャットにおいて発言したり，ユーザが特定の文字列を入力すると自動で返信したりするプログラムである．本プログラムは以下の2つの機能をもつ．
 
 \begin{enumerate}
 \item 入力された文字列を返信する機能
 \item 入力された飲食店の情報を返信する機能
 \end{enumerate}
-
-また，本資料において引用符``''に囲まれた文字列は，Slackにおける発言を示す．
+本資料において引用符``''に囲まれた文字列は，Slackにおける発言を示す．また，本資料における返信とは，ユーザの発言に対し，本プログラムが応答することを示す．
 
 \section{対象とする利用者}
 \label{sec:target_users}
@@ -61,74 +60,71 @@ Googleアカウントは本プログラムで使用するAPIキーの取得に�
 
 \section{機能}
 \label{sec:function}
-本プログラムは，Slackでの``@TakaBot''という文字列から始まる発言を受信し，その発言に対して返信する．返信の内容は``@TakaBot''以降の文字列により決定される．以下に本プログラムがもつ2つの機能について述べる．
+本プログラムは，Slackでの``@TakaBot''という文字列から始まる発言を受信し，この発言に対して返信する．返信の内容は``@TakaBot''以降の文字列により決定される．以下に本プログラムがもつ2つの機能について述べる．
+
 \begin{description}
 \item[(機能1)]  入力された文字列を返信する機能 \\
-  ユーザが``@TakaBot 「(指定された文字列)」と言って''と発言した場合，本プログラムは鉤括弧内の文字列を返信する．例えば，ユーザが``@TakaBot 「こんにちは」と言って''と発言した場合，本プログラムは``こんにちは''と返信する．
+  ユーザが``@TakaBot 「(指定された文字列)」と言って''と発言した場合，本プログラムは鉤括弧内の文字列を返信する．たとえば，ユーザが``@TakaBot 「こんにちは」と言って''と発言した場合，本プログラムは\figref{fig1}のように返信する．
+  \insertfigure[0.7]{fig1}{fig1}{``@TakaBot 「こんにちは」と言って''に対する返信}
 
 \item[(機能2)]  入力された飲食店の情報を返信する機能 \\
-  ユーザが``「(飲食店の名前)」の情報''と発言した場合，本プログラムは鉤括弧内で指定された飲食店の詳細情報を返信する．詳細情報は以下の通りである．
-\newpage
+  ユーザが``@TakaBot 「(飲食店の名前)」の情報''と発言した場合，本プログラムは鉤括弧内で入力された飲食店の詳細情報を返信する．ただし，入力された飲食店の場所を特定するため，入力する文字列には，都道府県名，市町村名，駅名，および店舗名などを含む必要がある．飲食店の詳細情報はGoogle Places API\cite{placesapi}を利用して取得している．Google Places APIにより，Googleマップ\cite{googlemaps}，Googleプレイス\cite{googleplace}，およびGoogle+\cite{googleplus}のデータベースにアクセスし，データを取得できる．本機能により返信される内容の詳細は以下のとおりである．
+  
   \begin{enumerate}
-  \item 飲食店の名前
-  \item 開店ステータス
-  \item 価格帯
-  \item 評価
-  \item URL
-  \item 最新のレビュー
-  \item 投稿写真
+  \item 飲食店の名前 \\
+    入力された飲食店名から，最も適切な飲食店の情報をGoogle Places APIにより取得する．これにより，取得した飲食店の名前を表示する．
+  \item 開店ステータス \\
+    ユーザが本プログラムに対する発言を入力した時点で，(1)の飲食店が営業中であるか休業中であるかを表示する．
+  \item 価格帯 \\
+    (1)の飲食店の価格帯を0から4の数字で表示する．詳細は以下のとおりである．
+    \begin{enumerate}
+    \item 0: 無料
+    \item 1: 安い
+    \item 2: 普通
+    \item 3: やや高い
+    \item 4: 非常に高い
+    \end{enumerate}
+  \item 評価 \\
+    Googleプレイスのレビューの集計に基づき，(1)の飲食店の評価を表示する．評価は1.0から5.0の数字で表される．
+  \item URL \\
+    (1)の飲食店の公式WebサイトのURLを表示する．
+  \item レビュー \\
+    Google Places APIにより取得した，(1)の飲食店に関するレビューを1件表示する．
+  \item 写真 \\
+    Google Places APIにより取得した，(1)の飲食店に関する写真を1枚表示する．
   \end{enumerate}
-  以上の情報はGoogle Places API\cite{placesapi}を利用して取得している．
+  たとえば，ユーザが``@TakaBot 「スターバックス　岡山」の情報''と発言した場合，本プログラムは\figref{fig2}のように返信する．
+  \insertfigure[0.9]{fig2}{fig2}{``@TakaBot 「スターバックス　岡山」の情報''に対する返信}
+  
 \end{description}
-上記の(機能1)，(機能2)のどちらにも当てはまらない発言を受信した場合，本プログラムは以下のように返信する．
+上記の(機能1)，(機能2)のどちらにも当てはまらない発言を受信した場合，本プログラムは\figref{fig3}のように返信する．
 
-\begin{verbatim}
-@ユーザ名 Hi!
-使い方1: 「○○」と言って，使い方2: 「飲食店の名前」の情報
-\end{verbatim}
+\insertfigure[0.7]{fig3}{fig3}{(機能1)，(機能2)のどちらにもあてはまらない場合}
 
 \section{動作環境}
 \label{sec:devenv}
-本プログラムの動作環境を\tabref{tab:prod_env}に示す．また，\tabref{tab:prod_env}の環境において本プログラムが正常に動作することを確認した．
+本プログラムはHeroku\cite{heroku}上で動作させる．Herokuとは，アプリケーションを実行するためのプラットフォームである．なお，本プログラムではHerokuのフリープランを利用している．以下，\tabref{tab:heroku_env}にHerokuの環境を示す．
 
 \begin{table}[h]
   \begin{center}
-    \caption{動作環境}\label{tab:prod_env}
+    \caption{動作環境（Heroku）}\label{tab:heroku_env}
     \begin{tabular}{l|l}
       \hline \hline
       項目 & 内容 \\ \hline
-      OS & Debian GNU/Linux 8 (jessie) 64-bit \\ 
-      CPU & Intel Core i5-4670 CPU (3.40GHz)\\
-      メモリ & 1.0GB \\ 
-      ブラウザ & FireFox 59.0.2 \\ 
-      ソフトウェア & Ruby 2.5.1 \\
-      & bundler 1.16.1 \\
-      & heroku CLI 6.16.11-b6217f5  \\
-      & Git 2.1.4 \\
+      OS & Ubuntu 16.04.4 LTS\\ 
+      CPU & Intel(R) Xeon(R) CPU E5-2670 v2 @ 2.50GHz\\
+      メモリ & 512MB \\
+      Ruby & 2.5.1p57 \\
+      Ruby Gem & bundler 1.16.1 \\
+      & mustermann 1.0.2\\
+      & rack 2.0.4 \\
+      & rack-protection 2.0.1\\
+      & sinatra 2.0.1\\
+      & tilt 2.0.8 \\
       \hline
     \end{tabular}
   \end{center}
 \end{table}
-
-また，本プログラムに必要なGemを\tabref{tab:gem_table}に示す．Gemとは，Rubyで使用することのできるライブラリである．
-
-\begin{table}[h]
-  \begin{center}
-    \caption{本プログラムに必要なGem}\label{tab:gem_table}
-    \begin{tabular}{l|l}
-      \hline \hline
-      Gem & バージョン \\
-      \hline 
-      mustermann & 1.0.2 \\
-      rack & 2.0.4 \\
-      rack-protection & 2.0.1 \\
-      sinatra & 2.0.1 \\
-      tilt & 2.0.8 \\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
-
 
 \newpage
 \section{環境構築}
@@ -141,7 +137,6 @@ Googleアカウントは本プログラムで使用するAPIキーの取得に�
 \item SlackのIncoming WebHooksの設定
 \item SlackのOutgoing WebHooksの設定
 \item Google Places APIのAPIキー取得
-\item Gemのインストール
 \end{enumerate}
 次節で各項目における具体的な手順について述べる．
 
@@ -168,49 +163,49 @@ $ heroku login
 
 \item 本プログラムのディレクトリに移動して以下のコマンドを実行し，Heroku上にアプリケーションを生成する．
 \begin{verbatim}
-$ heroku create <myapp_name>
+$ heroku create <app_name>
 \end{verbatim}
-ただし，\verb|<myapp_name>|は任意のアプリケーション名を示す．アプリケーション名には小文字，数字，およびハイフンのみ使用できる．
+ただし，\verb|<app_name>|は任意のアプリケーション名を示す．アプリケーション名には英語のアルファベットの小文字，数字，およびハイフンのみ使用できる．
 
 \item 以下のコマンドを実行し，生成したアプリケーションがリモートリポジトリに登録されていることを確認する．
 \begin{verbatim}
 $ git remote -v
-heroku https://git.heroku.com/<myapp_name>.git (fetch)
-heroku https://git.heroku.com/<myapp_name>.git (push)
+heroku https://git.heroku.com/<app_name>.git (fetch)
+heroku https://git.heroku.com/<app_name>.git (push)
 \end{verbatim}
 \end{enumerate}
 
 \subsubsection{SlackのIncoming WebHooksの設定}
 \begin{enumerate}
 \item 以下のURLにアクセスする．\\
-  https://XXXXX.slack.com/apps/manage/custom-integrations\\
-  ただし，XXXXXは自分のチーム名を示す．
+  https://$<$team\_name$>$.slack.com/apps/manage/custom-integrations\\
+  ただし，$<$team\_name$>$は自分のチーム名を示す．
 \item 「Incoming WebHooks」をクリックする．
 \item 「Add Configuration」をクリックする．
 \item 「Choose a channel...」から発言を投稿したいチャンネルを選択し，「Add Incoming WebHooks integration」をクリックする．
-\item WebHook URLを取得する．以下のコマンドにより取得したURLをHerokuの環境変数に設定する．
+\item Webhook URLを取得する．以下のコマンドにより取得したURLをHerokuの環境変数に設定する．
 \begin{verbatim}
-  $ heroku config:set INCOMING_WEBHOOK_URL="https://XXXXX"
+  $ heroku config:set INCOMING_WEBHOOK_URL="https://<webhook_url>"
 \end{verbatim}
-ただし，\verb|XXXXX|は取得した自分のWebHook URLを示す．
+ただし，\verb|<webhook_url>|は取得した自分のWebhook URLを示す．
 \end{enumerate}
 
 \subsubsection{SlackのOutgoing WebHooksの設定}
 \begin{enumerate}
 \item 以下のURLにアクセスする．\\
- https://XXXXX.slack.com/apps/manage/custom-integrations\\
-  ただし，XXXXXは自分のチーム名を示す．
+ https://$<$team\_name$>$.slack.com/apps/manage/custom-integrations\\
+  ただし，$<$team\_name$>$は自分のチーム名を示す．
 \item 「Outgoing WebHooks」をクリックする．
 \item 「Add Configuration」をクリックする．
 \item 「Add Outgoing WebHooks integration」をクリックし，以下の項目を設定する．
-\newpage
+
 \begin{enumerate}
   \item Channelにて，発言を監視するチャンネルを選択する．
   \item Trigger Word(s)に，WebHooksが動作する契機となる単語を設定する．
   \item URL(s)に，WebHooksが動作した際にPOSTするURLを設定する．本プログラムは
   Heroku上で動作させるため以下のURLを設定する．\\
-  https://XXXXX.herokuapp.com/slack \\
-  ただし，XXXXXはHerokuに登録したアプリケーション名を示す．
+  https://$<$app\_name$>$.herokuapp.com/slack \\
+  ただし，$<$app\_name$>$はHerokuに登録したアプリケーション名を示す．
 \end{enumerate}
 \end{enumerate}
 
@@ -226,34 +221,23 @@ $ heroku config:set GOOGLE_PLACES_APIKEY="API key"
 \end{verbatim}
 \end{enumerate}
 
-\subsubsection{Gemのインストール}
-本プログラムで使用するGemをbundlerを用いてインストールする．bundlerとは，Gemの依存関係やバージョンを管理するためのものである．
-\begin{enumerate}
-\item 以下のコマンドを実行し，Gemをインストールする．
-\begin{verbatim}
-$ bundle install --path vendor/bundle
-\end{verbatim}
-\end{enumerate}
-
 \section{使用方法}
 \label{usage}
-本プログラムの仕様方法について述べる．本プログラムはHeroku上で動作するため，Herokuへデプロイすることで実行できる．以下のコマンドを用いてHerokuにデプロイする．
+本プログラムの使用方法について述べる．本プログラムはHeroku上で動作するため，Herokuへデプロイすることで実行できる．以下のコマンドを用いてHerokuにデプロイする．
 
 \begin{verbatim}
 $ git push heroku master
 \end{verbatim}
 
-\newpage
 \section{エラー処理と保証しない動作}
 \label{error_handling}
 本プログラムにおけるエラー処理と保証しない動作について述べる．
 
 \subsection{エラー処理}
 \begin{enumerate}
-\item (機能2)について，本プログラムが指定された飲食店の情報をGoogle Places APIから取得できなかった場合，以下のようにユーザに返信する．
-\begin{verbatim}
-結果が取得できませんでした
-\end{verbatim}
+\item (機能2)について，本プログラムが，入力された飲食店の情報をGoogle Places APIから取得できなかった場合，\figref{fig4}のようにユーザに返信する．
+\insertfigure[0.5]{fig4}{fig4}{Google Places APIから情報を取得できなかった場合}
+
 \end{enumerate}
 
 \subsection{保証しない動作}
