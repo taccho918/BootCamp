@@ -32,7 +32,7 @@
 \end{center}
 
 \begin{flushright}
-  2018/4/12\\
+  2018/4/19\\
   高橋 桃花
 \end{flushright}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -83,7 +83,7 @@ $ mkdir git
 $ cd git
 $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 \end{verbatim}
-コマンド実行後，\verb|mkdir|コマンドにより \verb|/home/takahashi|以下に \verb|git|ディレクトリが作成される．そして， \verb|cd|コマンドにより， \verb|git|ディレクトリに移動する．\verb|git clone|コマンドにより， \verb|/home/takahashi/git|以下に \verb|linux-stable| ディレクトリが作成される．
+コマンド実行後，\verb|mkdir|コマンドにより \verb|/home/takahashi|以下に \verb|git|ディレクトリが作成される．そして， \verb|cd|コマンドにより， \verb|git|ディレクトリに移動する．\verb|git clone|コマンドにより， \verb|/home/takahashi/git|以下にクローン元のリポジトリの内容を複製する．
 
 \subsection{ブランチの作成と切り替え}
 Linuxカーネルのバージョン3.15.0にシステムコールを追加するため，ソースコードのバージョンを切り替える．従って，ブランチの作成と切り替えを行う．ブランチとは開発の履歴を管理するための分岐である．\verb|/home/takahashi/git/linux-stable|で以下のコマンドを実行する．
@@ -182,9 +182,8 @@ $ nproc
 $ make bzImage -j8
 \end{verbatim}
 \verb|nproc|コマンドにより利用可能なCPU数を確認する．次に，\verb|make|コマンドの\verb|-j [N]|オプションに確認したCPU数を指定し，実行する．
-\verb|make|コマンドにおける\verb|-j [N]|オプションは，一度に実行できるジョブの数を指定するものであり，\verb|[N]|はジョブ数を示す．ジョブ数を指定しない場合，\verb|make|コマンドは同時に実行できるジョブの数を制限しない．\\
-コマンド実行後，\verb|/home/takahashi/git/linux-stable/arch/x86/boot|以下にbzImage\\
-という名前の新しいカーネルイメージが作成される．カーネルイメージとはLinuxカーネルを格納して圧縮したファイルである．カーネルイメージ作成と同時に，\verb|/home/takahashi/git/linux-stable|以下にすべてのカーネルシンボルのアドレスを記述した\verb|System.map|が作成される．カーネルシンボルとは，カーネルのプログラムが格納されたメモリアドレスと対応付けられた文字列のことである．
+\verb|make|コマンドにおける\verb|-j [N]|オプションは，一度に実行できるジョブの数を指定するものであり，\verb|[N]|はジョブ数を示す．ジョブ数を指定しない場合，\verb|make|コマンドは同時に実行できるジョブの数を制限しない．
+コマンド実行後，\verb|/home/takahashi/git/linux-stable/arch/x86/boot|以下にbzImageという名前の新しいカーネルイメージが作成される．カーネルイメージとはLinuxカーネルを格納して圧縮したファイルである．カーネルイメージ作成と同時に，\verb|/home/takahashi/git/linux-stable|以下にすべてのカーネルシンボルのアドレスを記述した\verb|System.map|が作成される．カーネルシンボルとは，カーネルのプログラムが格納されたメモリアドレスと対応付けられた文字列のことである．
 
 \item カーネルのインストール \\
   コンパイルしたカーネルをインストールする．以下のコマンドを実行する．
@@ -225,8 +224,7 @@ $ sudo update-initramfs -c -k 3.15.0
 手順(5)の実行結果の最後に表示されたディレクトリ名をコマンドの引数として与える．上記のコマンドを実行すると，\verb|/boot|以下に初期RAMディスクイメージ\verb|initrd.img-3.15.0|が作成される．
 
 \item ブートローダの設定 \\
-  システムコールを実装したカーネルをブートローダから起動可能にするために，ブートローダの設定を行う．ブートローダとは，カーネルイメージをRAMへ読み込むために，BIOSが呼び出すプログラムである．BIOS（Basic Input/Output System）とは，基本的な入出力機能の制御を行うプログラムである\cite{daniel2007}．\\
-  本環境で使用されているブートローダはGRUB2である．また，GRUB2の設定ファイルは\verb|/boot/grub/grub.cfg|である．GRUB2でカーネル選択画面にエントリを追加する際，設定ファイルを直接編集せず，\verb|/etc/grub.d|以下にエントリ追加用のスクリプトを作成し，そのスクリプトを実行することでエントリを追加する．以下にGRUB2の設定の手順を示す．
+  システムコールを実装したカーネルをブートローダから起動可能にするために，ブートローダの設定を行う．ブートローダとは，カーネルイメージをRAMへ読み込むために，BIOSが呼び出すプログラムである．BIOS（Basic Input/Output System）とは，基本的な入出力機能の制御を行うプログラムである\cite{daniel2007}．本環境で使用されているブートローダはGRUB2である．また，GRUB2の設定ファイルは\verb|/boot/grub/grub.cfg|である．GRUB2でカーネル選択画面にエントリを追加する際，設定ファイルを直接編集せず，\verb|/etc/grub.d|以下にエントリ追加用のスクリプトを作成し，そのスクリプトを実行することでエントリを追加する．以下にGRUB2の設定の手順を示す．
   
   \begin{enumerate}
   \item エントリ追加用のスクリプトの作成\\
@@ -303,18 +301,18 @@ $ sudo reboot
 \item 任意の文字列を定義
 \item システムコール番号を指定し，\verb|sys_mysyscall()|の呼び出し
 \end{enumerate}
-この結果，カーネルのメッセージバッファに指定した文字列が格納される．
+この結果，カーネルのメッセージバッファに指定した文字列が出力される．
 テストプログラムの作成例を以下に示す．
 
 \begin{verbatim}
- 1  #include <unistd.h> // syscall()が宣言されている
- 2 
- 3  int main(void)
- 4  {
- 5    char *str = "this is test"
- 6    syscall(317,str); // syscall(sys_mysyscall(),str);
- 7    return 0;
- 8  } 
+ 1 #include <unistd.h> // syscall()が宣言されている
+ 2
+ 3 int main(void)
+ 4 {
+ 5   char *str = "this is test"
+ 6   syscall(317,str); // syscall(sys_mysyscall(),str);
+ 7   return 0;
+ 8 } 
 \end{verbatim}
 6行目において，317は\verb|sys_mysyscall()|のシステムコール番号を表す．
 
