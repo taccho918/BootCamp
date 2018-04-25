@@ -11,7 +11,7 @@ PROJECT = report
 #   PROJECT_BIB = mybibfile.bib
 # otherwise, leave it blank.
 #
-#PROJECT_BIB = mybibfile.bib
+PROJECT_BIB = mybibfile.bib
 
 # Set all pdf figure files in the project like:
 #
